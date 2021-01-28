@@ -31,6 +31,18 @@ type AddRoad struct {
 	Road     Road
 }
 
+// AddSettlement represents a player gaining a settlement.
+type AddSettlement struct {
+	PlayerID   PlayerID
+	Settlement Settlement
+}
+
+// AddCity represents a player gaining a city.
+type AddCity struct {
+	PlayerID PlayerID
+	City     City
+}
+
 // Effect is the interface for all state changes that can then be
 // reduced onto a board. They also can be stored and undone/replayed.
 type Effect interface{ isEffect() }
@@ -39,6 +51,8 @@ func (e AddResources) isEffect()    {}
 func (e RemoveResources) isEffect() {}
 func (e AddDevCard) isEffect()      {}
 func (e AddRoad) isEffect()         {}
+func (e AddSettlement) isEffect()   {}
+func (e AddCity) isEffect()         {}
 
 // Actions
 
@@ -216,11 +230,47 @@ func DoBuildRoad(b Board, road BuildRoad) []Effect {
 	}
 
 	if player.Resources.Lumber < 1 || player.Resources.Brick < 1 {
-		log.Fatalf("Player has insufficient resources to buy dev card.")
+		log.Fatalf("Player has insufficient resources to buy road.")
 	}
 
 	return []Effect{
 		AddRoad{PlayerID: road.PlayerID, Road: road.Road},
 		RemoveResources{PlayerID: road.PlayerID, Resources: map[Resource]int{Lumber: 1, Brick: 1}},
+	}
+}
+
+// DoBuildSettlement returns effects for settlement purchase.
+func DoBuildSettlement(b Board, s BuildSettlement) []Effect {
+	// TODO validate settlement hexes are adjacent
+
+	player, ok := b.FindPlayer(s.PlayerID)
+	if !ok {
+		log.Fatalf("Invalid Player ID: %d", s.PlayerID)
+	}
+
+	if player.Resources.Lumber < 1 || player.Resources.Brick < 1 || player.Resources.Grain < 1 || player.Resources.Wool < 1 {
+		log.Fatalf("Player has insufficient resources to buy settlement.")
+	}
+
+	return []Effect{
+		AddSettlement{PlayerID: s.PlayerID, Settlement: s.Settlement},
+		RemoveResources{PlayerID: s.PlayerID, Resources: map[Resource]int{Lumber: 1, Brick: 1, Grain: 1, Wool: 1}},
+	}
+}
+
+// DoBuildCity returns effects for city purchase.
+func DoBuildCity(b Board, c BuildCity) []Effect {
+	player, ok := b.FindPlayer(c.PlayerID)
+	if !ok {
+		log.Fatalf("Invalid Player ID: %d", c.PlayerID)
+	}
+
+	if player.Resources.Ore < 3 || player.Resources.Grain < 2 {
+		log.Fatalf("Player has insufficient resources to buy settlement.")
+	}
+
+	return []Effect{
+		AddCity{PlayerID: c.PlayerID, City: c.City},
+		RemoveResources{PlayerID: c.PlayerID, Resources: map[Resource]int{Ore: 3, Grain: 2}},
 	}
 }

@@ -162,3 +162,25 @@ func TestDoBuildRoad(t *testing.T) {
 		t.Errorf("got %v; want %v", got, want)
 	}
 }
+
+func TestDoBuildSettlement(t *testing.T) {
+	buyer := PlayerID(1)
+	settlement := Settlement{A: Hex{0, 0}, B: Hex{0, 1}, C: Hex{1, 1}}
+
+	board := Board{
+		Players: []Player{
+			{ID: buyer, Resources: Resources{Brick: 1, Lumber: 1, Grain: 1, Wool: 2}},
+		},
+	}
+
+	got := DoBuildSettlement(board, BuildSettlement{PlayerID: buyer, Settlement: settlement})
+
+	want := []Effect{
+		AddSettlement{PlayerID: buyer, Settlement: settlement},
+		RemoveResources{PlayerID: buyer, Resources: map[Resource]int{Brick: 1, Lumber: 1, Grain: 1, Wool: 1}},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v; want %v", got, want)
+	}
+}
