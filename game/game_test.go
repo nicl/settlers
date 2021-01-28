@@ -1,6 +1,8 @@
 package game
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsNeighbour(t *testing.T) {
 	hex := Hex{Row: 0, Column: 0}

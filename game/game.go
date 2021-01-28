@@ -2,8 +2,11 @@
 // achieved using an axial implementation. See
 // https://www.redblobgames.com/grids/hexagons/#coordinates-axial for
 // more on this. I've relabelled 'q' and 'r' as 'Column' and 'Row' for
-// readability.
+// readability. It ranges from +-2 in each axis, but note the sum never
+// exceeds 2.
 package game
+
+import "log"
 
 // Resource is a type for resources.
 type Resource int
@@ -21,6 +24,25 @@ const (
 	Sea
 )
 
+// String returns a sensible string representation.
+func (r Resource) String() string {
+	switch r {
+	case Brick:
+		return "Brick"
+	case Grain:
+		return "Grain"
+	case Lumber:
+		return "Lumber"
+	case Ore:
+		return "Ore"
+	case Wool:
+		return "Wool"
+	default:
+		log.Fatalf("Unknown resource: %d", r)
+		return ""
+	}
+}
+
 // Hex contains axial coordinates and other meta for a tile.
 type Hex struct {
 	Column, Row int
@@ -36,7 +58,7 @@ func abs(x int) int {
 
 // IsNeighbour is a predicate that returns true if 'other' is a
 // neighbour to the hex. Returns false is a = b.
-func (a Hex) IsNeighbour(b Hex) bool {
+func (h Hex) IsNeighbour(b Hex) bool {
 	neighbours := map[Hex]interface{}{
 		{1, 0}:  nil,
 		{1, -1}: nil,
@@ -46,12 +68,23 @@ func (a Hex) IsNeighbour(b Hex) bool {
 		{0, 1}:  nil,
 	}
 
-	colOffset := a.Column - b.Column
-	rowOffset := a.Row - b.Row
+	colOffset := h.Column - b.Column
+	rowOffset := h.Row - b.Row
 
 	_, ok := neighbours[Hex{Column: colOffset, Row: rowOffset}]
 
 	return ok
+}
+
+// ContainsNeighbour returns true if any candidate is neighbour to hex
+func (h Hex) ContainsNeighbour(candidates ...Hex) bool {
+	for _, c := range candidates {
+		if h.IsNeighbour(c) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // FindSharedNeighbour returns the shared neighbour of two neighbouring hexes.
@@ -65,6 +98,30 @@ func FindSharedNeighbour(a, b Hex, candidates []Hex) (Hex, bool) {
 	return Hex{}, false
 }
 
+func FindAdjacentCities(location Hex, cities []City) []City {
+	var adjacent []City
+
+	for _, c := range cities {
+		if location.ContainsNeighbour(c.A, c.B, c.C) {
+			adjacent = append(adjacent, c)
+		}
+	}
+
+	return adjacent
+}
+
+func FindAdjacentSettlements(location Hex, settlements []Settlement) []Settlement {
+	var adjacent []Settlement
+
+	for _, s := range settlements {
+		if location.ContainsNeighbour(s.A, s.B, s.C) {
+			adjacent = append(adjacent, s)
+		}
+	}
+
+	return adjacent
+}
+
 // Tile is a hex location as well as resource type and dice number.
 type Tile struct {
 	Location Hex
@@ -74,22 +131,19 @@ type Tile struct {
 
 // Road denotes location (lies between two neighbours) and who owns it.
 type Road struct {
-	A, B   Hex
-	Player int
+	A, B Hex
 }
 
 // Settlement denotes location (meeting point of three neighbours) and
 // owner.
 type Settlement struct {
 	A, B, C Hex
-	Player  int
 }
 
 // City denotes location (meeting point of three neighbours) and
 // owner.
 type City struct {
 	A, B, C Hex
-	Player  int
 }
 
 // DevelopmentCard is a type alias for development cards.
@@ -104,30 +158,42 @@ const (
 	VictoryPoint
 )
 
+// PlayerID uniquely identifies a player.
+type PlayerID int
+
+// Resources type to make instantiating Player easier
+type Resources struct {
+	Brick, Grain, Lumber, Ore, Wool int
+}
+
 // Player represents a player's hand.
 type Player struct {
-	Resources struct {
-		Brick, Grain, Lumber, Ore, Wool int
-	}
+	ID               PlayerID
+	Resources        Resources
 	DevelopmentCards struct {
 		InHand, Played []DevelopmentCard
 	}
+	Settlements []Settlement
+	Cities      []City
 }
 
 // Board is the general wrapper type for game state for a board. Scores
 // and actions can be derived from this. Actions operate on a board (are
 // 'reducers').
 type Board struct {
-	Robber  Hex
-	Players []Player
-	Tiles   []Tile
+	Robber           Hex
+	Players          []Player
+	Tiles            []Tile
+	DevelopmentCards []DevelopmentCard
 }
 
-// * find (available) adjacent vertices
-// * find settlements/cities 'on' a tile
+// FindPlayer returns player with given ID.
+func (b Board) FindPlayer(playerID PlayerID) (Player, bool) {
+	for _, p := range b.Players {
+		if p.ID == playerID {
+			return p, true
+		}
+	}
 
-// Implementation
-// * use axial and then with neighbours
-
-// * a road connects two neighbours
-// * a settlement connects three neighbours (or two if edge of board)
+	return Player{}, false
+}
